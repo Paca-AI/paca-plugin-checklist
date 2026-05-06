@@ -1,0 +1,29 @@
+{
+  "id": "com.paca.checklist",
+  "displayName": "Checklist",
+  "description": "Adds named checklists with checkable items to tasks.",
+  "version": "0.1.0",
+  "permissions": ["db.read", "db.write", "events.subscribe"],
+  "backend": {
+    "eventSubscriptions": ["task.deleted"],
+    "routes": [
+      { "method": "GET",    "path": "/tasks/:taskId/checklists" },
+      { "method": "POST",   "path": "/tasks/:taskId/checklists" },
+      { "method": "PATCH",  "path": "/tasks/:taskId/checklists/:checklistId" },
+      { "method": "DELETE", "path": "/tasks/:taskId/checklists/:checklistId" },
+      { "method": "POST",   "path": "/tasks/:taskId/checklists/:checklistId/items" },
+      { "method": "PATCH",  "path": "/tasks/:taskId/checklists/:checklistId/items/:itemId" },
+      { "method": "DELETE", "path": "/tasks/:taskId/checklists/:checklistId/items/:itemId" }
+    ]
+  },
+  "frontend": {
+    "remoteEntryUrl": "/plugins/com.paca.checklist/assets/remoteEntry.js",
+    "extensionPoints": [
+      {
+        "point": "task.detail.section",
+        "component": "ChecklistsSection",
+        "order": 10
+      }
+    ]
+  }
+}
