@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	plugin "github.com/Paca-AI/plugin-sdk"
+	plugin "github.com/Paca-AI/plugin-sdk-go"
 	"github.com/google/uuid"
 )
 

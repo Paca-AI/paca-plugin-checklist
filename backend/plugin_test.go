@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	plugin "github.com/Paca-AI/plugin-sdk"
-	"github.com/Paca-AI/plugin-sdk/plugintest"
+	plugin "github.com/Paca-AI/plugin-sdk-go"
+	"github.com/Paca-AI/plugin-sdk-go/plugintest"
 )
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
