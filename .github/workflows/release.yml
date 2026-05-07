@@ -28,10 +28,11 @@ jobs:
           bun-version: latest
 
       - name: Build backend WASM
+        working-directory: backend
         run: |
           set -euo pipefail
-          mkdir -p release/backend
-          GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o release/backend/checklist.wasm ./backend
+          mkdir -p ../release/backend
+          GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o ../release/backend/checklist.wasm .
 
       - name: Build frontend
         working-directory: frontend
