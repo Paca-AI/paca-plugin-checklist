@@ -25,5 +25,8 @@
         "order": 10
       }
     ]
+  },
+  "mcp": {
+    "remoteEntryUrl": "/plugins-mcp/com.paca.checklist/mcp.js"
   }
 }

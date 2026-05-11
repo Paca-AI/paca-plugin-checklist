@@ -41,11 +41,21 @@ jobs:
           bun install --frozen-lockfile
           bun run build
 
+      - name: Build MCP
+        working-directory: mcp
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
+          bun run build
+
       - name: Collect release files
         run: |
           set -euo pipefail
           mkdir -p release/frontend
           cp -R frontend/dist release/frontend/dist
+
+          mkdir -p release/mcp
+          cp -R mcp/dist release/mcp/dist
 
           mkdir -p release/migrations
           cp -R backend/migrations/. release/migrations/
@@ -57,6 +67,7 @@ jobs:
           set -euo pipefail
           tar -czf checklist-backend-wasm.tar.gz -C release/backend checklist.wasm
           tar -czf checklist-frontend-dist.tar.gz -C release/frontend dist
+          tar -czf checklist-mcp-dist.tar.gz -C release/mcp dist
           tar -czf checklist-migrations.tar.gz -C release migrations
           tar -czf checklist-plugin-manifest.tar.gz -C release plugin.json
 
@@ -65,6 +76,7 @@ jobs:
           set -euo pipefail
           sha256sum checklist-backend-wasm.tar.gz \
             checklist-frontend-dist.tar.gz \
+            checklist-mcp-dist.tar.gz \
             checklist-migrations.tar.gz \
             checklist-plugin-manifest.tar.gz > checksums.txt
 
@@ -75,6 +87,7 @@ jobs:
           files: |
             checklist-backend-wasm.tar.gz
             checklist-frontend-dist.tar.gz
+            checklist-mcp-dist.tar.gz
             checklist-migrations.tar.gz
             checklist-plugin-manifest.tar.gz
             checksums.txt
