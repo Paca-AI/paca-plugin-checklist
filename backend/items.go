@@ -164,7 +164,7 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 		UpdatedAt:   now,
 	}
 	// Build change list for the activity record.
-	changes := make([]map[string]any, 0, 3)
+	changes := []map[string]any{}
 	oldTitle := sc.str("title")
 	if b.Title != nil && *b.Title != oldTitle {
 		changes = append(changes, map[string]any{"field": "title", "old": oldTitle, "new": *b.Title})
