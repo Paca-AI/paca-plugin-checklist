@@ -67,6 +67,8 @@ func (p *checklistPlugin) createItem(req *plugin.Request, res *plugin.Response) 
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
+	plugin.RecordActivity(taskID, projectID, req.Caller.UserID, "task.checklist_item.created",
+		map[string]any{"text": b.Title, "_description": "added checklist item: \"" + b.Title + "\""})
 	created(res, item)
 }
 
@@ -161,6 +163,26 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 		CreatedAt:   createdAt,
 		UpdatedAt:   now,
 	}
+	// Build change list for the activity record.
+	changes := []map[string]any{}
+	oldTitle := sc.str("title")
+	if b.Title != nil && *b.Title != oldTitle {
+		changes = append(changes, map[string]any{"field": "title", "old": oldTitle, "new": *b.Title})
+	}
+	oldChecked := sc.boolVal("is_checked")
+	if b.IsChecked != nil && *b.IsChecked != oldChecked {
+		changes = append(changes, map[string]any{"field": "is_checked", "old": oldChecked, "new": *b.IsChecked})
+	}
+	oldAssignee := sc.strPtr("assignee_id")
+	if b.AssigneeID != nil && (oldAssignee == nil || *oldAssignee != *b.AssigneeID) {
+		var oldAssigneeActivity any
+		if oldAssignee != nil {
+			oldAssigneeActivity = *oldAssignee
+		}
+		changes = append(changes, map[string]any{"field": "assignee_id", "old": oldAssigneeActivity, "new": *b.AssigneeID})
+	}
+	plugin.RecordActivity(taskID, projectID, req.Caller.UserID, "task.checklist_item.updated",
+		map[string]any{"text": updTitle, "changes": changes, "_description": "updated checklist item: \"" + updTitle + "\""})
 	ok(res, item)
 }
 
@@ -175,6 +197,23 @@ func (p *checklistPlugin) deleteItem(req *plugin.Request, res *plugin.Response) 
 		return
 	}
 
+	// Fetch item title before deletion for activity record.
+	titleResult, err := p.db.Query(
+		`SELECT title FROM task_checklist_items WHERE id = $1 AND checklist_id = $2`,
+		itemID, checklistID,
+	)
+	if err != nil {
+		p.log.Error("deleteItem title fetch: " + err.Error())
+		res.Error(500, "failed to delete item")
+		return
+	}
+	if len(titleResult.Rows) == 0 {
+		res.Error(404, "item not found")
+		return
+	}
+	itemTitleSC := newRowScanner(titleResult.Columns, titleResult.Rows[0])
+	itemTitle := itemTitleSC.str("title")
+
 	affected, err := p.db.Exec(
 		`DELETE FROM task_checklist_items WHERE id = $1 AND checklist_id = $2`,
 		itemID, checklistID,
@@ -188,5 +227,7 @@ func (p *checklistPlugin) deleteItem(req *plugin.Request, res *plugin.Response) 
 		res.Error(404, "item not found")
 		return
 	}
+	plugin.RecordActivity(taskID, projectID, req.Caller.UserID, "task.checklist_item.deleted",
+		map[string]any{"text": itemTitle, "_description": "removed checklist item: \"" + itemTitle + "\""})
 	res.NoContent()
 }

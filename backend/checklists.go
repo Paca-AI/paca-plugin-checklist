@@ -162,6 +162,8 @@ func (p *checklistPlugin) createChecklist(req *plugin.Request, res *plugin.Respo
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
+	plugin.RecordActivity(taskID, projectID, req.Caller.UserID, "task.checklist.created",
+		map[string]any{"title": b.Title, "_description": "created checklist: \"" + b.Title + "\""})
 	created(res, cl)
 }
 
@@ -230,6 +232,8 @@ func (p *checklistPlugin) updateChecklist(req *plugin.Request, res *plugin.Respo
 		CreatedAt: sc.str("created_at"),
 		UpdatedAt: now,
 	}
+	plugin.RecordActivity(taskID, projectID, req.Caller.UserID, "task.checklist.updated",
+		map[string]any{"title": *b.Title, "_description": "renamed checklist to \"" + *b.Title + "\""})
 	ok(res, cl)
 }
 
@@ -242,6 +246,23 @@ func (p *checklistPlugin) deleteChecklist(req *plugin.Request, res *plugin.Respo
 	if !p.taskBelongsToProject(taskID, projectID, res) {
 		return
 	}
+
+	// Fetch title before deletion so it can be included in the activity record.
+	titleResult, err := p.db.Query(
+		`SELECT title FROM task_checklists WHERE id = $1 AND task_id = $2`,
+		checklistID, taskID,
+	)
+	if err != nil {
+		p.log.Error("deleteChecklist title fetch: " + err.Error())
+		res.Error(500, "failed to delete checklist")
+		return
+	}
+	if len(titleResult.Rows) == 0 {
+		res.Error(404, "checklist not found")
+		return
+	}
+	titleSC := newRowScanner(titleResult.Columns, titleResult.Rows[0])
+	clTitle := titleSC.str("title")
 
 	affected, err := p.db.Exec(
 		`DELETE FROM task_checklists WHERE id = $1 AND task_id = $2`,
@@ -256,6 +277,8 @@ func (p *checklistPlugin) deleteChecklist(req *plugin.Request, res *plugin.Respo
 		res.Error(404, "checklist not found")
 		return
 	}
+	plugin.RecordActivity(taskID, projectID, req.Caller.UserID, "task.checklist.deleted",
+		map[string]any{"title": clTitle, "_description": "deleted checklist: \"" + clTitle + "\""})
 	res.NoContent()
 }
 
