@@ -164,15 +164,22 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 		UpdatedAt:   now,
 	}
 	// Build change list for the activity record.
-	var changes []map[string]any
-	if b.Title != nil && *b.Title != sc.str("title") {
-		changes = append(changes, map[string]any{"field": "title", "old": sc.str("title"), "new": *b.Title})
+	changes := make([]map[string]any, 0, 3)
+	oldTitle := sc.str("title")
+	if b.Title != nil && *b.Title != oldTitle {
+		changes = append(changes, map[string]any{"field": "title", "old": oldTitle, "new": *b.Title})
 	}
-	if b.IsChecked != nil && *b.IsChecked != sc.boolVal("is_checked") {
-		changes = append(changes, map[string]any{"field": "is_checked", "old": sc.boolVal("is_checked"), "new": *b.IsChecked})
+	oldChecked := sc.boolVal("is_checked")
+	if b.IsChecked != nil && *b.IsChecked != oldChecked {
+		changes = append(changes, map[string]any{"field": "is_checked", "old": oldChecked, "new": *b.IsChecked})
 	}
-	if b.AssigneeID != nil {
-		changes = append(changes, map[string]any{"field": "assignee_id", "old": sc.strPtr("assignee_id"), "new": *b.AssigneeID})
+	oldAssignee := sc.strPtr("assignee_id")
+	if b.AssigneeID != nil && (oldAssignee == nil || *oldAssignee != *b.AssigneeID) {
+		var oldAssigneeActivity any
+		if oldAssignee != nil {
+			oldAssigneeActivity = *oldAssignee
+		}
+		changes = append(changes, map[string]any{"field": "assignee_id", "old": oldAssigneeActivity, "new": *b.AssigneeID})
 	}
 	plugin.RecordActivity(taskID, projectID, req.Caller.UserID, "task.checklist_item.updated",
 		map[string]any{"text": updTitle, "changes": changes, "_description": "updated checklist item: \"" + updTitle + "\""})
