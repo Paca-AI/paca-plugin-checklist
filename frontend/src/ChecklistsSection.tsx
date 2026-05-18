@@ -58,7 +58,7 @@ function ChecklistsSectionInner({
   const { data: checklists = [], isLoading } = useQuery<Checklist[]>({
     queryKey,
     queryFn: () =>
-      api.pluginGet<Checklist[]>(PLUGIN_ID, `/tasks/${taskId}/checklists`),
+      api.pluginGet<Checklist[]>(PLUGIN_ID, `/projects/${projectId}/tasks/${taskId}/checklists`),
   });
 
   // ── Mutations ──────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ function ChecklistsSectionInner({
 
   const createChecklist = useMutation({
     mutationFn: () =>
-      api.pluginPost<Checklist>(PLUGIN_ID, `/tasks/${taskId}/checklists`, {
+      api.pluginPost<Checklist>(PLUGIN_ID, `/projects/${projectId}/tasks/${taskId}/checklists`, {
         title: `Checklist ${checklists.length + 1}`,
       }),
     onSuccess: invalidate,
@@ -75,7 +75,7 @@ function ChecklistsSectionInner({
 
   const deleteChecklist = useMutation({
     mutationFn: (checklistId: string) =>
-      api.pluginDelete(PLUGIN_ID, `/tasks/${taskId}/checklists/${checklistId}`),
+      api.pluginDelete(PLUGIN_ID, `/projects/${projectId}/tasks/${taskId}/checklists/${checklistId}`),
     onSuccess: invalidate,
   });
 
@@ -89,7 +89,7 @@ function ChecklistsSectionInner({
     }) =>
       api.pluginPost<ChecklistItem>(
         PLUGIN_ID,
-        `/tasks/${taskId}/checklists/${checklistId}/items`,
+        `/projects/${projectId}/tasks/${taskId}/checklists/${checklistId}/items`,
         { title },
       ),
     onSuccess: invalidate,
@@ -107,7 +107,7 @@ function ChecklistsSectionInner({
     }) =>
       api.pluginPatch<ChecklistItem>(
         PLUGIN_ID,
-        `/tasks/${taskId}/checklists/${checklistId}/items/${itemId}`,
+        `/projects/${projectId}/tasks/${taskId}/checklists/${checklistId}/items/${itemId}`,
         patch,
       ),
     onSuccess: invalidate,
@@ -123,7 +123,7 @@ function ChecklistsSectionInner({
     }) =>
       api.pluginDelete(
         PLUGIN_ID,
-        `/tasks/${taskId}/checklists/${checklistId}/items/${itemId}`,
+        `/projects/${projectId}/tasks/${taskId}/checklists/${checklistId}/items/${itemId}`,
       ),
     onSuccess: invalidate,
   });
