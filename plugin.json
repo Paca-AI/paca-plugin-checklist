@@ -9,7 +9,7 @@
     "routes": [
       {
         "method": "GET",
-        "path": "/tasks/:taskId/checklists",
+        "path": "/projects/:projectId/tasks/:taskId/checklists",
         "middlewares": [
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
@@ -22,7 +22,7 @@
       },
       {
         "method": "POST",
-        "path": "/tasks/:taskId/checklists",
+        "path": "/projects/:projectId/tasks/:taskId/checklists",
         "middlewares": [
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
@@ -35,7 +35,7 @@
       },
       {
         "method": "PATCH",
-        "path": "/tasks/:taskId/checklists/:checklistId",
+        "path": "/projects/:projectId/tasks/:taskId/checklists/:checklistId",
         "middlewares": [
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
@@ -48,7 +48,7 @@
       },
       {
         "method": "DELETE",
-        "path": "/tasks/:taskId/checklists/:checklistId",
+        "path": "/projects/:projectId/tasks/:taskId/checklists/:checklistId",
         "middlewares": [
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
@@ -61,7 +61,7 @@
       },
       {
         "method": "POST",
-        "path": "/tasks/:taskId/checklists/:checklistId/items",
+        "path": "/projects/:projectId/tasks/:taskId/checklists/:checklistId/items",
         "middlewares": [
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
@@ -74,7 +74,7 @@
       },
       {
         "method": "PATCH",
-        "path": "/tasks/:taskId/checklists/:checklistId/items/:itemId",
+        "path": "/projects/:projectId/tasks/:taskId/checklists/:checklistId/items/:itemId",
         "middlewares": [
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
@@ -87,7 +87,7 @@
       },
       {
         "method": "DELETE",
-        "path": "/tasks/:taskId/checklists/:checklistId/items/:itemId",
+        "path": "/projects/:projectId/tasks/:taskId/checklists/:checklistId/items/:itemId",
         "middlewares": [
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
