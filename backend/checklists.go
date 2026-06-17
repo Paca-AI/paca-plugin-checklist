@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	plugin "github.com/Paca-AI/plugin-sdk-go"
-	"github.com/google/uuid"
 )
 
 // ── Domain types ──────────────────────────────────────────────────────────────
@@ -142,17 +141,20 @@ func (p *checklistPlugin) createChecklist(req *plugin.Request, res *plugin.Respo
 		nextPos = sc.intVal("next_pos")
 	}
 
-	id := uuid.New().String()
 	now := nowStr()
-	_, err = p.db.Exec(
-		`INSERT INTO task_checklists (id, task_id, title, position, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		id, taskID, b.Title, nextPos, req.Caller.CallerID, now, now,
+	inserted, err := p.db.Query(
+		`INSERT INTO task_checklists (task_id, title, position, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+		taskID, b.Title, nextPos, req.Caller.CallerID, now, now,
 	)
-	if err != nil {
-		p.log.Error("createChecklist insert: " + err.Error())
+	if err != nil || len(inserted.Rows) == 0 {
+		if err != nil {
+			p.log.Error("createChecklist insert: " + err.Error())
+		}
 		res.Error(500, "failed to create checklist")
 		return
 	}
+	idSC := newRowScanner(inserted.Columns, inserted.Rows[0])
+	id := idSC.str("id")
 	cl := checklist{
 		ID:        id,
 		TaskID:    taskID,
