@@ -2,7 +2,6 @@ package main
 
 import (
 	plugin "github.com/Paca-AI/plugin-sdk-go"
-	"github.com/google/uuid"
 )
 
 // ── Item route handlers ───────────────────────────────────────────────────────
@@ -46,17 +45,20 @@ func (p *checklistPlugin) createItem(req *plugin.Request, res *plugin.Response) 
 		nextPos = sc.intVal("next_pos")
 	}
 
-	id := uuid.New().String()
 	now := nowStr()
-	_, err = p.db.Exec(
-		`INSERT INTO task_checklist_items (id, checklist_id, title, is_checked, assignee_id, position, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		id, checklistID, b.Title, false, nil, nextPos, req.Caller.CallerID, now, now,
+	inserted, err := p.db.Query(
+		`INSERT INTO task_checklist_items (checklist_id, title, is_checked, assignee_id, position, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+		checklistID, b.Title, false, nil, nextPos, req.Caller.CallerID, now, now,
 	)
-	if err != nil {
-		p.log.Error("createItem insert: " + err.Error())
+	if err != nil || len(inserted.Rows) == 0 {
+		if err != nil {
+			p.log.Error("createItem insert: " + err.Error())
+		}
 		res.Error(500, "failed to create item")
 		return
 	}
+	idSC := newRowScanner(inserted.Columns, inserted.Rows[0])
+	id := idSC.str("id")
 	item := checklistItem{
 		ID:          id,
 		ChecklistID: checklistID,

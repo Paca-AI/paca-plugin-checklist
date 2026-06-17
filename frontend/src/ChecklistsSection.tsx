@@ -160,7 +160,7 @@ function ChecklistsSectionInner({
                 checklist={cl}
                 canEdit={canEdit}
                 onRename={(id, title) =>
-                  api.pluginPatch(PLUGIN_ID, `/tasks/${taskId}/checklists/${id}`, { title }).then(invalidate)
+                  api.pluginPatch(PLUGIN_ID, `/projects/${projectId}/tasks/${taskId}/checklists/${id}`, { title }).then(invalidate)
                 }
                 onDelete={(id) => deleteChecklist.mutate(id)}
                 onCreateItem={(checklistId, title) =>
