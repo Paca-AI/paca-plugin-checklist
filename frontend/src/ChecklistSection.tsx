@@ -81,7 +81,7 @@ export function ChecklistSection({
             }}
             // biome-ignore lint/a11y/noAutofocus: intentional for inline title editing
             autoFocus
-            className="text-[13px] font-semibold text-foreground flex-1 min-w-0 bg-transparent outline-none rounded-md -mx-2 px-2 py-1"
+            className="text-sm font-semibold text-foreground flex-1 min-w-0 bg-transparent outline-none rounded-md -mx-2 px-2 py-1"
             aria-label="Checklist title"
           />
         ) : (
@@ -94,7 +94,7 @@ export function ChecklistSection({
               setTimeout(() => titleInputRef.current?.focus(), 0);
             }}
             className={cn(
-              "text-[13px] font-semibold text-foreground flex-1 min-w-0 text-left",
+              "text-sm font-semibold text-foreground flex-1 min-w-0 text-left",
               canEdit &&
                 "cursor-text rounded-md -mx-2 px-2 py-1 transition-colors hover:bg-muted/30",
             )}
@@ -104,7 +104,7 @@ export function ChecklistSection({
         )}
         <span
           className={cn(
-            "text-[11px] font-bold tabular-nums rounded-full px-2 py-0.5",
+            "text-xs font-bold tabular-nums rounded-full px-2 py-0.5",
             pct === 100
               ? "bg-emerald-500/15 text-emerald-600"
               : "bg-muted/50 text-muted-foreground/80",
@@ -159,7 +159,7 @@ export function ChecklistSection({
             </button>
             <span
               className={cn(
-                "flex-1 text-[13px] transition-all duration-200",
+                "flex-1 text-sm transition-all duration-200",
                 item.is_checked
                   ? "line-through text-muted-foreground/60"
                   : "text-foreground",
@@ -191,13 +191,13 @@ export function ChecklistSection({
                 if (e.key === "Enter") addItem();
               }}
               placeholder="Add an item…"
-              className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground/45 py-1.5 focus:placeholder:text-muted-foreground/70 transition-colors"
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/45 py-1.5 focus:placeholder:text-muted-foreground/70 transition-colors"
             />
             {newItem && (
               <button
                 type="button"
                 onClick={addItem}
-                className="text-[11px] text-primary/80 font-semibold hover:text-primary transition-colors duration-150"
+                className="text-xs text-primary/80 font-semibold hover:text-primary transition-colors duration-150"
               >
                 Add
               </button>

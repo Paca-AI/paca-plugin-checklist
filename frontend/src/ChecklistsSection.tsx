@@ -133,7 +133,7 @@ function ChecklistsSectionInner({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70 flex items-center gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground/70 flex items-center gap-2">
           <span>Checklists</span>
           <div className="flex-1 h-px bg-linear-to-r from-border/40 to-transparent" />
         </h3>
@@ -141,7 +141,7 @@ function ChecklistsSectionInner({
           <button
             type="button"
             onClick={() => createChecklist.mutate()}
-            className="flex items-center gap-1.5 rounded-lg bg-muted/40 text-muted-foreground/80 hover:bg-muted/60 hover:text-foreground px-2.5 py-1.5 text-[11px] font-semibold transition-all duration-150"
+            className="flex items-center gap-1.5 rounded-lg bg-muted/40 text-muted-foreground/80 hover:bg-muted/60 hover:text-foreground px-2.5 py-1.5 text-xs font-semibold transition-all duration-150"
           >
             <Plus className="size-3" />
             Create checklist
@@ -183,7 +183,7 @@ function ChecklistsSectionInner({
       ) : (
         <div className="flex items-center gap-3 px-1 py-3 text-muted-foreground/45">
           <ListChecks className="size-4 opacity-70" />
-          <p className="text-[13px] italic">No checklists yet</p>
+          <p className="text-sm italic">No checklists yet</p>
         </div>
       )}
     </div>
