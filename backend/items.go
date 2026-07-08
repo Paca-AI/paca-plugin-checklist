@@ -1,8 +1,39 @@
 package main
 
 import (
+	"encoding/json"
+
 	plugin "github.com/Paca-AI/plugin-sdk-go"
 )
+
+// optionalString distinguishes three states for a JSON PATCH field:
+//   - key absent    → Set=false (leave the stored value unchanged)
+//   - key = null    → Set=true, Value=nil (explicitly clear the stored value)
+//   - key = "value" → Set=true, Value=non-nil (set the stored value)
+//
+// A plain *string cannot represent this: encoding/json leaves it nil both
+// when the key is absent and when it is explicitly null, so a client asking
+// to clear the field silently gets ignored instead.
+type optionalString struct {
+	Set   bool
+	Value *string
+}
+
+// UnmarshalJSON implements json.Unmarshaler. It marks the field as Set and
+// decodes the value, treating JSON null as a nil pointer.
+func (o *optionalString) UnmarshalJSON(data []byte) error {
+	o.Set = true
+	if string(data) == "null" {
+		o.Value = nil
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	o.Value = &s
+	return nil
+}
 
 // ── Item route handlers ───────────────────────────────────────────────────────
 
@@ -87,9 +118,9 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 	}
 
 	type body struct {
-		Title      *string `json:"title"`
-		IsChecked  *bool   `json:"is_checked"`
-		AssigneeID *string `json:"assignee_id"`
+		Title      *string        `json:"title"`
+		IsChecked  *bool          `json:"is_checked"`
+		AssigneeID optionalString `json:"assignee_id"`
 	}
 	b, err := plugin.JSONBody[body](req)
 	if err != nil {
@@ -97,7 +128,7 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 		return
 	}
 
-	if b.Title == nil && b.IsChecked == nil && b.AssigneeID == nil {
+	if b.Title == nil && b.IsChecked == nil && !b.AssigneeID.Set {
 		res.Error(400, "no fields to update")
 		return
 	}
@@ -133,8 +164,8 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 	if b.IsChecked != nil {
 		updChecked = *b.IsChecked
 	}
-	if b.AssigneeID != nil {
-		updAssignee = b.AssigneeID
+	if b.AssigneeID.Set {
+		updAssignee = b.AssigneeID.Value
 	}
 
 	// Simulate UPDATE as DELETE + re-INSERT. task_checklist_items has no child
@@ -176,12 +207,20 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 		changes = append(changes, map[string]any{"field": "is_checked", "old": oldChecked, "new": *b.IsChecked})
 	}
 	oldAssignee := sc.strPtr("assignee_id")
-	if b.AssigneeID != nil && (oldAssignee == nil || *oldAssignee != *b.AssigneeID) {
-		var oldAssigneeActivity any
-		if oldAssignee != nil {
-			oldAssigneeActivity = *oldAssignee
+	if b.AssigneeID.Set {
+		newAssignee := b.AssigneeID.Value
+		assigneeChanged := (oldAssignee == nil) != (newAssignee == nil) ||
+			(oldAssignee != nil && newAssignee != nil && *oldAssignee != *newAssignee)
+		if assigneeChanged {
+			var oldAssigneeActivity, newAssigneeActivity any
+			if oldAssignee != nil {
+				oldAssigneeActivity = *oldAssignee
+			}
+			if newAssignee != nil {
+				newAssigneeActivity = *newAssignee
+			}
+			changes = append(changes, map[string]any{"field": "assignee_id", "old": oldAssigneeActivity, "new": newAssigneeActivity})
 		}
-		changes = append(changes, map[string]any{"field": "assignee_id", "old": oldAssigneeActivity, "new": *b.AssigneeID})
 	}
 	plugin.RecordActivity(taskID, projectID, req.Caller.UserID, "task.checklist_item.updated",
 		map[string]any{"text": updTitle, "changes": changes, "_description": "updated checklist item: \"" + updTitle + "\""})
