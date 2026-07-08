@@ -49,10 +49,20 @@ func (s *scanner) str(col string) string {
 	if !ok || i >= len(s.row) || s.row[i] == nil {
 		return ""
 	}
-	if v, ok := s.row[i].(string); ok {
+	switch v := s.row[i].(type) {
+	case string:
 		return v
+	case *string:
+		// updateItem re-inserts nullable columns as *string (nil = SQL NULL);
+		// a real driver dereferences this on the way in, but the row may
+		// still hold the pointer verbatim in tests, so unwrap it here too.
+		if v == nil {
+			return ""
+		}
+		return *v
+	default:
+		return fmt.Sprintf("%v", s.row[i])
 	}
-	return fmt.Sprintf("%v", s.row[i])
 }
 
 func (s *scanner) strPtr(col string) *string {

@@ -306,6 +306,114 @@ func TestDeleteItem(t *testing.T) {
 	}
 }
 
+// TestUpdateItem_OmittedAssigneeUnchanged guards against regressing to
+// unconditionally overwriting assignee_id on every PATCH, even when the
+// request omits it.
+func TestUpdateItem_OmittedAssigneeUnchanged(t *testing.T) {
+	tc := setupPlugin(t)
+
+	createRes := tc.Call("POST", "/tasks/:taskId/checklists",
+		withPathParams(callerReq(), map[string]string{"taskId": testTaskID}).
+			WithJSONBody(map[string]string{"title": "CL"}))
+	var clEnv struct {
+		Data checklist `json:"data"`
+	}
+	_ = json.Unmarshal(createRes.Body, &clEnv)
+	clID := clEnv.Data.ID
+
+	itemRes := tc.Call("POST", "/tasks/:taskId/checklists/:checklistId/items",
+		withPathParams(callerReq(), map[string]string{
+			"taskId":      testTaskID,
+			"checklistId": clID,
+		}).WithJSONBody(map[string]string{"title": "Step"}))
+	var itemEnv struct {
+		Data checklistItem `json:"data"`
+	}
+	_ = json.Unmarshal(itemRes.Body, &itemEnv)
+	itemID := itemEnv.Data.ID
+
+	itemPath := map[string]string{"taskId": testTaskID, "checklistId": clID, "itemId": itemID}
+
+	assignRes := tc.Call("PATCH", "/tasks/:taskId/checklists/:checklistId/items/:itemId",
+		withPathParams(callerReq(), itemPath).WithJSONBody(map[string]any{"assignee_id": "user-42"}))
+	if assignRes.StatusCode != 200 {
+		t.Fatalf("expected 200, got %d: %s", assignRes.StatusCode, assignRes.BodyString())
+	}
+	var assignEnv struct {
+		Data checklistItem `json:"data"`
+	}
+	_ = json.Unmarshal(assignRes.Body, &assignEnv)
+	if assignEnv.Data.AssigneeID == nil || *assignEnv.Data.AssigneeID != "user-42" {
+		t.Fatalf("expected assignee_id=user-42, got %+v", assignEnv.Data.AssigneeID)
+	}
+
+	// Patch only is_checked; assignee_id is absent from the body and must
+	// survive the update untouched.
+	patchRes := tc.Call("PATCH", "/tasks/:taskId/checklists/:checklistId/items/:itemId",
+		withPathParams(callerReq(), itemPath).WithJSONBody(map[string]any{"is_checked": true}))
+	if patchRes.StatusCode != 200 {
+		t.Fatalf("expected 200, got %d: %s", patchRes.StatusCode, patchRes.BodyString())
+	}
+	var patchEnv struct {
+		Data checklistItem `json:"data"`
+	}
+	_ = json.Unmarshal(patchRes.Body, &patchEnv)
+	if !patchEnv.Data.IsChecked {
+		t.Fatal("expected is_checked=true")
+	}
+	if patchEnv.Data.AssigneeID == nil || *patchEnv.Data.AssigneeID != "user-42" {
+		t.Fatalf("expected assignee_id to remain user-42, got %+v", patchEnv.Data.AssigneeID)
+	}
+}
+
+// TestUpdateItem_ExplicitNullClearsAssignee verifies the other half of the
+// three-state contract: an explicit JSON null clears the assignee, matching
+// the checklist MCP tool's documented "pass null to unassign" behavior.
+func TestUpdateItem_ExplicitNullClearsAssignee(t *testing.T) {
+	tc := setupPlugin(t)
+
+	createRes := tc.Call("POST", "/tasks/:taskId/checklists",
+		withPathParams(callerReq(), map[string]string{"taskId": testTaskID}).
+			WithJSONBody(map[string]string{"title": "CL"}))
+	var clEnv struct {
+		Data checklist `json:"data"`
+	}
+	_ = json.Unmarshal(createRes.Body, &clEnv)
+	clID := clEnv.Data.ID
+
+	itemRes := tc.Call("POST", "/tasks/:taskId/checklists/:checklistId/items",
+		withPathParams(callerReq(), map[string]string{
+			"taskId":      testTaskID,
+			"checklistId": clID,
+		}).WithJSONBody(map[string]string{"title": "Step"}))
+	var itemEnv struct {
+		Data checklistItem `json:"data"`
+	}
+	_ = json.Unmarshal(itemRes.Body, &itemEnv)
+	itemID := itemEnv.Data.ID
+
+	itemPath := map[string]string{"taskId": testTaskID, "checklistId": clID, "itemId": itemID}
+
+	assignRes := tc.Call("PATCH", "/tasks/:taskId/checklists/:checklistId/items/:itemId",
+		withPathParams(callerReq(), itemPath).WithJSONBody(map[string]any{"assignee_id": "user-42"}))
+	if assignRes.StatusCode != 200 {
+		t.Fatalf("expected 200, got %d: %s", assignRes.StatusCode, assignRes.BodyString())
+	}
+
+	clearRes := tc.Call("PATCH", "/tasks/:taskId/checklists/:checklistId/items/:itemId",
+		withPathParams(callerReq(), itemPath).WithJSONBody(map[string]any{"assignee_id": nil}))
+	if clearRes.StatusCode != 200 {
+		t.Fatalf("expected 200, got %d: %s", clearRes.StatusCode, clearRes.BodyString())
+	}
+	var clearEnv struct {
+		Data checklistItem `json:"data"`
+	}
+	_ = json.Unmarshal(clearRes.Body, &clearEnv)
+	if clearEnv.Data.AssigneeID != nil {
+		t.Fatalf("expected assignee_id to be cleared, got %q", *clearEnv.Data.AssigneeID)
+	}
+}
+
 // ── 404 guard tests ───────────────────────────────────────────────────────────
 
 func TestListChecklists_UnknownTask(t *testing.T) {
