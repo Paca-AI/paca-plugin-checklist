@@ -2,7 +2,7 @@
   "id": "com.paca.checklist",
   "displayName": "Checklist",
   "description": "Adds named checklists with checkable items to tasks.",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "minCoreVersion": "v0.13.3",
   "permissions": ["db.read", "db.write", "events.subscribe"],
   "backend": {
