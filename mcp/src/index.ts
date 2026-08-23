@@ -374,6 +374,35 @@ const entry: PluginMCPEntry = {
 			return errorResult(`Tool ${name} failed: ${message}`);
 		}
 	},
+
+	async getToolContext(
+		toolId: string,
+		args: Record<string, unknown>,
+		context: PluginMCPContext,
+	) {
+		if (toolId !== "get_task") return null;
+		const { projectId, taskId } = args as { projectId: string; taskId: string };
+
+		const api = new PluginAPIClient(context);
+		try {
+			const checklists = await api.pluginGet<Checklist[]>(
+				`projects/${projectId}/tasks/${taskId}/checklists`,
+			);
+			if (checklists.length === 0) return null;
+
+			const lines = ["## Checklists"];
+			for (const cl of checklists) {
+				const done = cl.items.filter((i) => i.is_checked).length;
+				lines.push("", `**${cl.title}** (${done}/${cl.items.length} done)`);
+				lines.push(...cl.items.map(formatItem));
+			}
+			return lines.join("\n");
+		} catch {
+			// Best-effort enrichment — a transient failure here should not
+			// break the get_task response for the AI client.
+			return null;
+		}
+	},
 };
 
 export default entry;

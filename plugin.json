@@ -2,8 +2,8 @@
   "id": "com.paca.checklist",
   "displayName": "Checklist",
   "description": "Adds named checklists with checkable items to tasks.",
-  "version": "0.2.8",
-  "minCoreVersion": "v0.11.2",
+  "version": "0.2.9",
+  "minCoreVersion": "v0.13.3",
   "permissions": ["db.read", "db.write", "events.subscribe"],
   "backend": {
     "eventSubscriptions": ["task.deleted"],
@@ -112,6 +112,7 @@
     ]
   },
   "mcp": {
-    "remoteEntryUrl": "/plugins-mcp/com.paca.checklist/mcp.js"
+    "remoteEntryUrl": "/plugins-mcp/com.paca.checklist/mcp.js",
+    "toolContextHooks": ["get_task"]
   }
 }
