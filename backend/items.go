@@ -50,10 +50,10 @@ func (p *checklistPlugin) createItem(req *plugin.Request, res *plugin.Response) 
 		return
 	}
 
-	type body struct {
+	type createItemBody struct {
 		Title string `json:"title"`
 	}
-	b, err := plugin.JSONBody[body](req)
+	b, err := plugin.JSONBody[createItemBody](req)
 	if err != nil || b.Title == "" {
 		res.Error(400, "title is required")
 		return
@@ -117,12 +117,12 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 		return
 	}
 
-	type body struct {
+	type updateItemBody struct {
 		Title      *string        `json:"title"`
 		IsChecked  *bool          `json:"is_checked"`
 		AssigneeID optionalString `json:"assignee_id"`
 	}
-	b, err := plugin.JSONBody[body](req)
+	b, err := plugin.JSONBody[updateItemBody](req)
 	if err != nil {
 		res.Error(400, "invalid request body")
 		return
