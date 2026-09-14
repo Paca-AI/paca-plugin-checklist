@@ -116,6 +116,9 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 	if !p.taskBelongsToProject(taskID, projectID, res) {
 		return
 	}
+	if !p.checklistOwnedByTask(checklistID, taskID, res) {
+		return
+	}
 
 	type updateItemBody struct {
 		Title      *string        `json:"title"`
@@ -133,11 +136,14 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 		return
 	}
 
-	// Fetch current state so we can preserve unpatched fields.
+	// Fetch current state so we can preserve unpatched fields. Scoped by
+	// checklist_id too (not just id) so an itemID belonging to a different
+	// checklist/task/project 404s here instead of being adopted into this
+	// checklist by the re-INSERT below.
 	cur, curErr := p.db.Query(
 		`SELECT id, checklist_id, title, is_checked, assignee_id, position, created_by, created_at, updated_at
-		 FROM task_checklist_items WHERE id = $1`,
-		itemID,
+		 FROM task_checklist_items WHERE id = $1 AND checklist_id = $2`,
+		itemID, checklistID,
 	)
 	if curErr != nil {
 		p.log.Error("updateItem fetch: " + curErr.Error())
@@ -169,9 +175,10 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 	}
 
 	// Simulate UPDATE as DELETE + re-INSERT. task_checklist_items has no child
-	// FK references, so this is safe in both tests and production.
+	// FK references, so this is safe in both tests and production. Scoped by
+	// checklist_id as defense-in-depth, matching the fetch above.
 	if _, err = p.db.Exec(
-		`DELETE FROM task_checklist_items WHERE id = $1`, itemID,
+		`DELETE FROM task_checklist_items WHERE id = $1 AND checklist_id = $2`, itemID, checklistID,
 	); err != nil {
 		p.log.Error("updateItem delete: " + err.Error())
 		res.Error(500, "failed to update item")
@@ -235,6 +242,9 @@ func (p *checklistPlugin) deleteItem(req *plugin.Request, res *plugin.Response) 
 	projectID := req.Caller.ProjectID
 
 	if !p.taskBelongsToProject(taskID, projectID, res) {
+		return
+	}
+	if !p.checklistOwnedByTask(checklistID, taskID, res) {
 		return
 	}
 

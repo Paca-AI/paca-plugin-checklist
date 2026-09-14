@@ -425,3 +425,117 @@ func TestListChecklists_UnknownTask(t *testing.T) {
 		t.Fatalf("expected 404, got %d", res.StatusCode)
 	}
 }
+
+// ── Cross-project ownership guards ───────────────────────────────────────────
+
+const (
+	otherProjectID = "project-2"
+	otherTaskID    = "task-2"
+)
+
+// otherProjectCallerReq mints a foreign checklist/item under otherTaskID,
+// which genuinely belongs to otherProjectID — used to set up the victim
+// resource for the cross-project tests below.
+func otherProjectCallerReq() plugintest.Request {
+	return plugintest.Request{
+		Caller: plugin.CallerIdentity{
+			ProjectID:  otherProjectID,
+			CallerID:   "member-2",
+			CallerRole: "PROJECT_MEMBER",
+		},
+		PathParams: map[string]string{},
+	}
+}
+
+// setupForeignItem re-seeds the tasks table with both the default
+// project-1/task-1 pair and a second, genuinely unrelated project-2/task-2
+// pair, then creates a real checklist + item under task-2 as a project-2
+// caller. Returns the foreign checklist and item IDs.
+func setupForeignItem(t *testing.T, tc *plugintest.Context) (foreignChecklistID, foreignItemID string) {
+	t.Helper()
+	tc.DB.SeedRows("tasks", []string{"id", "project_id", "deleted_at"}, [][]any{
+		{testTaskID, testProjectID, nil},
+		{otherTaskID, otherProjectID, nil},
+	})
+
+	clRes := tc.Call("POST", "/tasks/:taskId/checklists",
+		withPathParams(otherProjectCallerReq(), map[string]string{"taskId": otherTaskID}).
+			WithJSONBody(map[string]string{"title": "Someone else's checklist"}))
+	var clEnv struct {
+		Data checklist `json:"data"`
+	}
+	if err := json.Unmarshal(clRes.Body, &clEnv); err != nil {
+		t.Fatalf("failed to create foreign checklist: %s", clRes.BodyString())
+	}
+
+	itemRes := tc.Call("POST", "/tasks/:taskId/checklists/:checklistId/items",
+		withPathParams(otherProjectCallerReq(), map[string]string{
+			"taskId":      otherTaskID,
+			"checklistId": clEnv.Data.ID,
+		}).WithJSONBody(map[string]string{"title": "Someone else's item"}))
+	var itemEnv struct {
+		Data checklistItem `json:"data"`
+	}
+	if err := json.Unmarshal(itemRes.Body, &itemEnv); err != nil {
+		t.Fatalf("failed to create foreign item: %s", itemRes.BodyString())
+	}
+	return clEnv.Data.ID, itemEnv.Data.ID
+}
+
+// TestUpdateItem_CrossProjectChecklistRejected pins the fix for a real IDOR:
+// updateItem previously fetched/deleted/re-inserted the target item by bare
+// id, with no check that the checklist in the URL actually owns it — a
+// caller with tasks.write on their own project (testTaskID/testProjectID,
+// which legitimately passes taskBelongsToProject) could hijack and
+// reparent an arbitrary item from a checklist belonging to a completely
+// different project, just by knowing its UUID.
+func TestUpdateItem_CrossProjectChecklistRejected(t *testing.T) {
+	tc := setupPlugin(t)
+	foreignChecklistID, foreignItemID := setupForeignItem(t, tc)
+
+	res := tc.Call("PATCH", "/tasks/:taskId/checklists/:checklistId/items/:itemId",
+		withPathParams(callerReq(), map[string]string{
+			"taskId":      testTaskID, // caller's own, legitimate task
+			"checklistId": foreignChecklistID,
+			"itemId":      foreignItemID,
+		}).WithJSONBody(map[string]any{"title": "hijacked"}))
+	if res.StatusCode != 404 {
+		t.Fatalf("expected 404 (checklist belongs to a different task/project), got %d: %s", res.StatusCode, res.BodyString())
+	}
+
+	// The foreign item must be completely untouched.
+	rows := tc.DB.AllRows("task_checklist_items")
+	for _, row := range rows {
+		if row[0] == foreignItemID && row[2] == "hijacked" {
+			t.Fatal("foreign item was modified despite the 404")
+		}
+	}
+}
+
+// TestDeleteItem_CrossProjectChecklistRejected mirrors the update case for
+// delete: deleteItem checked taskBelongsToProject but never verified the
+// URL's checklistId actually belongs to that task.
+func TestDeleteItem_CrossProjectChecklistRejected(t *testing.T) {
+	tc := setupPlugin(t)
+	foreignChecklistID, foreignItemID := setupForeignItem(t, tc)
+
+	res := tc.Call("DELETE", "/tasks/:taskId/checklists/:checklistId/items/:itemId",
+		withPathParams(callerReq(), map[string]string{
+			"taskId":      testTaskID,
+			"checklistId": foreignChecklistID,
+			"itemId":      foreignItemID,
+		}))
+	if res.StatusCode != 404 {
+		t.Fatalf("expected 404 (checklist belongs to a different task/project), got %d: %s", res.StatusCode, res.BodyString())
+	}
+
+	found := false
+	for _, row := range tc.DB.AllRows("task_checklist_items") {
+		if row[0] == foreignItemID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("foreign item was deleted despite the 404")
+	}
+}
