@@ -15,9 +15,9 @@
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
-            "name": "requirePermissions",
+            "name": "requireActions",
             "scope": "project",
-            "permissions": ["tasks.read"]
+            "actions": ["tasks:read"]
           }
         ]
       },
@@ -28,9 +28,9 @@
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
-            "name": "requirePermissions",
+            "name": "requireActions",
             "scope": "project",
-            "permissions": ["tasks.write"]
+            "actions": ["tasks:write"]
           }
         ]
       },
@@ -41,9 +41,9 @@
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
-            "name": "requirePermissions",
+            "name": "requireActions",
             "scope": "project",
-            "permissions": ["tasks.write"]
+            "actions": ["tasks:write"]
           }
         ]
       },
@@ -54,9 +54,9 @@
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
-            "name": "requirePermissions",
+            "name": "requireActions",
             "scope": "project",
-            "permissions": ["tasks.write"]
+            "actions": ["tasks:write"]
           }
         ]
       },
@@ -67,9 +67,9 @@
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
-            "name": "requirePermissions",
+            "name": "requireActions",
             "scope": "project",
-            "permissions": ["tasks.write"]
+            "actions": ["tasks:write"]
           }
         ]
       },
@@ -80,9 +80,9 @@
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
-            "name": "requirePermissions",
+            "name": "requireActions",
             "scope": "project",
-            "permissions": ["tasks.write"]
+            "actions": ["tasks:write"]
           }
         ]
       },
@@ -93,9 +93,9 @@
           { "name": "optionalAuthn" },
           { "name": "requireFreshPassword" },
           {
-            "name": "requirePermissions",
+            "name": "requireActions",
             "scope": "project",
-            "permissions": ["tasks.write"]
+            "actions": ["tasks:write"]
           }
         ]
       }
