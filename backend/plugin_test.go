@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
 
 	plugin "github.com/Paca-AI/plugin-sdk-go"
@@ -537,5 +539,114 @@ func TestDeleteItem_CrossProjectChecklistRejected(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("foreign item was deleted despite the 404")
+	}
+}
+
+// ── Failed-write durability ─────────────────────────────────────────────────
+
+// failItemWriteDB wraps the in-memory DB and fails every Exec that writes to
+// task_checklist_items (INSERT or UPDATE), simulating a mid-request write
+// failure such as the production assignee_id FK violation behind #19. Reads
+// and DELETEs pass through, so the handler reaches the write with the row
+// still present — the state the bug in #20 depended on.
+type failItemWriteDB struct {
+	inner plugin.DBBackend
+}
+
+func (f failItemWriteDB) Query(sql string, params []any) (*plugin.DBQueryResult, error) {
+	return f.inner.Query(sql, params)
+}
+
+func (f failItemWriteDB) Exec(sql string, params []any) (int64, error) {
+	upper := strings.ToUpper(strings.TrimSpace(sql))
+	if strings.HasPrefix(upper, "INSERT INTO TASK_CHECKLIST_ITEMS") ||
+		strings.HasPrefix(upper, "UPDATE TASK_CHECKLIST_ITEMS") {
+		return 0, errors.New("injected write failure")
+	}
+	return f.inner.Exec(sql, params)
+}
+
+// callRoute dispatches a request against a plugin.Context built by hand,
+// mirroring plugintest.Context.Call for tests that need a custom DB backend.
+func callRoute(ctx *plugin.Context, method, path string, req plugintest.Request) *plugin.Response {
+	pluginReq := &plugin.Request{
+		Method:     method,
+		Path:       path,
+		Body:       req.Body,
+		Caller:     req.Caller,
+		PathParams: req.PathParams,
+		Query:      req.Query,
+		Headers:    req.Headers,
+	}
+	res := plugin.NewResponse()
+	plugin.DispatchRoute(ctx, method, path, pluginReq, res)
+	return res
+}
+
+// TestUpdateItem_FailedWriteKeepsItem pins the data-loss bug behind #20:
+// updateItem simulated UPDATE as DELETE + re-INSERT with no transaction, so
+// when the re-INSERT failed (e.g. an assignee_id that is a user ID instead
+// of a project_members id, per #19) the request returned 500 with the item
+// already deleted — a retry then 404ed. The update now happens as a single
+// statement, so a failed write leaves the row untouched.
+func TestUpdateItem_FailedWriteKeepsItem(t *testing.T) {
+	tc := setupPlugin(t)
+
+	// Re-init the plugin on a context whose DB fails item writes on Exec.
+	pCtx := plugin.NewContextForTest(
+		failItemWriteDB{inner: tc.DB}, tc.KV, tc.Cache, tc.Log, tc.Config, tc.Permissions,
+	)
+	var p checklistPlugin
+	if err := p.Init(pCtx); err != nil {
+		t.Fatal("Init failed:", err)
+	}
+
+	createRes := callRoute(pCtx, "POST", "/tasks/:taskId/checklists",
+		withPathParams(callerReq(), map[string]string{"taskId": testTaskID}).
+			WithJSONBody(map[string]string{"title": "CL"}))
+	if createRes.StatusCode != 201 {
+		t.Fatalf("expected 201, got %d: %s", createRes.StatusCode, createRes.BodyString())
+	}
+	var clEnv struct {
+		Data checklist `json:"data"`
+	}
+	_ = json.Unmarshal(createRes.Body, &clEnv)
+
+	itemRes := callRoute(pCtx, "POST", "/tasks/:taskId/checklists/:checklistId/items",
+		withPathParams(callerReq(), map[string]string{
+			"taskId":      testTaskID,
+			"checklistId": clEnv.Data.ID,
+		}).WithJSONBody(map[string]string{"title": "Step"}))
+	if itemRes.StatusCode != 201 {
+		t.Fatalf("expected 201, got %d: %s", itemRes.StatusCode, itemRes.BodyString())
+	}
+	var itemEnv struct {
+		Data checklistItem `json:"data"`
+	}
+	_ = json.Unmarshal(itemRes.Body, &itemEnv)
+	itemID := itemEnv.Data.ID
+
+	res := callRoute(pCtx, "PATCH", "/tasks/:taskId/checklists/:checklistId/items/:itemId",
+		withPathParams(callerReq(), map[string]string{
+			"taskId":      testTaskID,
+			"checklistId": clEnv.Data.ID,
+			"itemId":      itemID,
+		}).WithJSONBody(map[string]any{"title": "new title", "is_checked": true}))
+	if res.StatusCode != 500 {
+		t.Fatalf("expected 500, got %d: %s", res.StatusCode, res.BodyString())
+	}
+
+	found := false
+	for _, row := range tc.DB.AllRows("task_checklist_items") {
+		if row[0] != itemID {
+			continue
+		}
+		found = true
+		if row[2] != "Step" || row[3] != false {
+			t.Fatalf("item columns were mutated by the failed write: %v", row)
+		}
+	}
+	if !found {
+		t.Fatal("item was lost by the failed update (delete succeeded, write failed)")
 	}
 }
