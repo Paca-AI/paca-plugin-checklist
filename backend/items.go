@@ -160,7 +160,6 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 	updTitle := sc.str("title")
 	updChecked := sc.boolVal("is_checked")
 	updAssignee := sc.strPtr("assignee_id")
-	createdBy := sc.str("created_by")
 	createdAt := sc.str("created_at")
 	pos := sc.intVal("position")
 
@@ -174,22 +173,22 @@ func (p *checklistPlugin) updateItem(req *plugin.Request, res *plugin.Response) 
 		updAssignee = b.AssigneeID.Value
 	}
 
-	// Simulate UPDATE as DELETE + re-INSERT. task_checklist_items has no child
-	// FK references, so this is safe in both tests and production. Scoped by
-	// checklist_id as defense-in-depth, matching the fetch above.
-	if _, err = p.db.Exec(
-		`DELETE FROM task_checklist_items WHERE id = $1 AND checklist_id = $2`, itemID, checklistID,
-	); err != nil {
-		p.log.Error("updateItem delete: " + err.Error())
+	// Scoped by checklist_id as defense-in-depth, matching the fetch above.
+	// A single UPDATE keeps the row intact when the write fails; the old
+	// DELETE + re-INSERT pair lost the item on an INSERT error.
+	affected, err := p.db.Exec(
+		`UPDATE task_checklist_items
+		 SET title = $1, is_checked = $2, assignee_id = $3, updated_at = $4
+		 WHERE id = $5 AND checklist_id = $6`,
+		updTitle, updChecked, updAssignee, now, itemID, checklistID,
+	)
+	if err != nil {
+		p.log.Error("updateItem update: " + err.Error())
 		res.Error(500, "failed to update item")
 		return
 	}
-	if _, err = p.db.Exec(
-		`INSERT INTO task_checklist_items (id, checklist_id, title, is_checked, assignee_id, position, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		itemID, checklistID, updTitle, updChecked, updAssignee, pos, createdBy, createdAt, now,
-	); err != nil {
-		p.log.Error("updateItem insert: " + err.Error())
-		res.Error(500, "failed to update item")
+	if affected == 0 {
+		res.Error(404, "item not found")
 		return
 	}
 
